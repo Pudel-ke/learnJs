@@ -365,3 +365,9 @@ function handleKeyPress(event) {
 
 [前端部署优化](https://juejin.cn/post/6844904086823780366)
 
+- #### 构建
+
+- #### 验证
+
+- #### 压缩
+
