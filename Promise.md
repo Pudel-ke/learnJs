@@ -48,7 +48,7 @@ console.log(Promise.resolve(value));
 // Promise <resolved>:value
 ```
 
-此方法可以把任何值转换为期约。
+此方法可以把任何值**转换为期约**。
 
 - 如果传入参数本身是期约，那么就相当于空包装
 
@@ -79,13 +79,14 @@ console.log(p); //Promise <resolved> : Error: foo
 
 ```js
 console.log(Promise.reject(Promise.resolve(1)));
+// Promise <rejected>: Promise <resolved>： 1
 ```
 
 #### 同步|异步执行的二元性
 
 - 期约抛出的错误，只能通过异步模式捕获，即通过拒绝处理程序。
 
-- > 期约是同步对象，也是异步执行模式的媒介。
+- 期约是同步对象，也是异步执行模式的媒介。
 
 - 代码一旦异步执行，唯一与之交互的方式是使用**异步结构**
 
@@ -109,7 +110,9 @@ class myThenable {
 
 - Promise.then()方法返回一个新的期约实例
 
-​    **新的期约实例基于Promise.resolve()构建。如果没有提供处理程序，则会包装上一个期约解决之后的值。如果没有显示的返回语句，则会包装默认的返回值undefined**
+​    **新的期约实例基于Promise.resolve()构建。**
+
+   **如果没有提供处理程序，则会包装上一个期约解决之后的值。如果没有显示的返回语句，则会包装默认的返回值undefined**
 
 - 抛出异常会返回拒绝的期约
 
@@ -120,7 +123,7 @@ let p10 = p1.then(()=>{throw "baz"});
 console.log(p10); // Promise <rejected> : baz
 ```
 
-- 返回错误值不会触发拒绝行为，而是用Promise.resolve()包装之。
+- 返回错误值不会触发拒绝行为，而是用Promise.resolve()包装之。可能会导致误判。
 
 #### Promise.prototype.catch()
 
@@ -133,8 +136,23 @@ console.log(p10); // Promise <rejected> : baz
 此处理程序在期约转换为拒绝或解决状态时都会执行。**但此方法不知道期约的状态时解决还是拒绝。**
 
 - 如果处理程序返回一个待定期约或抛出错误（显示抛出或返回拒绝期约），则会返回相应的期约。
-
 - 其他情况下都将表现为父期约的传递。
+
+```js
+let p1 = Promise.resolve("foo");
+
+//原样后传
+let p2 = p1.finally();
+let p3 = p1.finally(() => {});
+let p4 = p1.finally(() => undefined);
+let p5 = p1.finally(() => Promise.resolve());
+let p6 = p1.finally(() => Promise.resolce("bar"));
+let p7 = p1.finally(() => "bar");
+let p8 = p1.finally(() => Error("qux"));
+//以上全都返回 Promise <resolved> : foo
+```
+
+
 
 #### 非重入期约方法
 
@@ -219,7 +237,7 @@ delayedResolve("p1 exec", 1000)
 - 所有子期约均解决，它才为解决。一旦出现拒绝，它也拒绝。
 - 所有的期约都成功解决，那么合成期约的解决值就是包含期约解决值得数组。
 - 如果有期约拒绝，则第一个拒绝的期约会将自己的理由作为合成期约拒绝理由。之后再拒绝的期约不会影响最终期约的拒绝理由。
-- 合成期约会静默处理所有包含期约的静默操作。
+- 合成期约会**静默处理**所有包含期约的静默操作。
 
 ```js
 let p = Promise.all([
@@ -241,6 +259,7 @@ let p1 = Promiser.race([
     new Promise((resolve, reject) => setTimeout(resolve, 1000))
 ]);
 console.log(p1);// Promise <resolved> :4  超时的解决被忽略
+//超时的拒绝也会被静默处理
 ```
 
 
@@ -265,19 +284,52 @@ console.log(p1);// Promise <resolved> :4  超时的解决被忽略
 
 - 异步函数始终返回期约对象
 
->  async异步函数执行与普通函数没区别。但如果异步函数使用了return 关键字返回值（没有return就返回undefined），这个值会被Promise.resolve()包装为期约对象。
+>  async异步函数执行与普通函数没区别。但如果异步函数使用了return 关键字返回了值（没有return就返回undefined），这个值会被Promise.resolve()包装为期约对象。
 
 - 异步函数返回值期待(实际并不要求)一个实现thenable接口的对象，但常规值也可以
   - 如果返回的是thenable接口对象，则此对象可以由提供给then()的处理程序“解包”
   - 如果不是，则返回值被当做已解决的期约
-- 拒绝期约的错误不会被异步函数捕获
+
+```js
+//返回原始值
+async function foo() {
+    return "foo";
+}
+foo().then(console.log);
+// foo
+//返回没有实现thenable的对象
+async function bar() {
+    return ["bar"];
+}
+bar().then(console.log);
+//["bar"]
+//返回实现了thenable接口的非期约对象
+async function baz() {
+    const thenable = {
+        then(callback) {callback("baz");}
+    };
+    return thenable;
+}
+baz().then(console.log);
+//baz
+//返回一个期约
+async function qux() {
+    return Promise.resolve("qux");
+}
+qux().then(console.log);
+//qux
+```
+
+
+
+- 拒绝期约的错误不会被异步函数捕获,但同步操作抛出的错误会被捕获。且显示返回拒绝期约的错误也能被捕获。
 
 ```js
 async function foo() {
 	console.log(1);
 	Promise.reject(3);
 }
-foo.catch(console.log);
+foo().catch(console.log);
 console.log(2);
 //1
 //2
@@ -301,18 +353,19 @@ foo();
 - await会暂停执行异步函数之后的代码，让出JavaScript运行时的执行线程。
 - 可以单独使用，也可以在表达式中使用
 - await 后 期待实现thenable接口的对象，若不是，则被当做已解决的期约。
-- 等待 会抛出错误的 同步操作，会返回拒绝的期约：
+- await 会**抛出错误**的同步操作，会返回拒绝的期约：
 
 ```js
 async function foo() {
 	console.log(1);
-	await (() => {throw 3;});
+	await (() => {throw 3;})(); //这里必须加()立即执行 才能抛出错误
+	console.log(4);//  此时代码也被暂停了
 }
 foo().catch(console.log);
 console.log(2);
 //1
 // 2
-//3
+// 3 同步操作抛出的错误被捕获
 ```
 
 - 对拒绝的期约使用await，会释放错误值（将期约返回）。
