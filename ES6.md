@@ -41,7 +41,7 @@ var y;
 
 ###### 小结
 
-- let 的过程，变成创建会被提升，初始化不会被提升，因此在let之前使用，会报错，即为暂时性死区(TDZ)
+- let 的过程，变量创建会被提升，初始化不会被提升，因此在let之前使用，会报错，即为暂时性死区(TDZ)
 
 - const 的过程同let，初始化不会被提升。
 
@@ -622,4 +622,461 @@ ES6 将这 4 个方法，在语言内部全部调用`RegExp`的实例方法，�
 /\d+(?=%)/.exec('100% of US presidents have been male')  // ["100"]
 /\d+(?!%)/.exec('that’s all 44 of them')                 // ["44"]
 ```
+
+###### 可迭代对象
+
+内部具有[Symbol.iterator]方法的对象
+
+```javascript
+let range = {
+  from: 0,
+  to: 5,
+};
+//迭代器对象和与其进行迭代的对象是分开的
+range[Symbol.iterator] = function() {
+  //返回迭代器对象
+  return {
+    current: this.from,
+    last: this.to,
+  //迭代器需要获取下一个迭代对象，调用next方法
+    next() {
+      if (this.current <= this.last) {
+        return {done: false,  value: this.current++,};
+      }
+      else {
+        return {done: true,};
+      }
+    }
+  }
+}
+
+for (num of range) {
+  console.log(num);
+}
+```
+```js
+//合并写法
+let range = {
+  from: 1,
+  to: 5,
+
+  [Symbol.iterator]() {
+    this.current = this.from;
+    return this;
+  },
+
+  next() {
+    if (this.current <= this.to) {
+      return { done: false, value: this.current++ };
+    } else {
+      return { done: true };
+    }
+  }
+};
+
+```
+
+###### 可迭代和类数组
+- iterable 是实现了Symbol.iterator方法的对象
+- 可迭代就是可以用 for of方法运行
+- Array-like 是由索引和length属性的**对象** 看起来像数组
+```js
+let arrayLike = {
+  0: 'hello',
+  1:  'world',
+  length: 2,
+};
+
+let arr = Array.from(arrayLike).
+alert(arr) //hello,world   数组的toString方法生效
+```
+###### Array.from
+Array.from 可以接受一个可迭代对象或类数组的值，并从中获取一个数组。
+```js
+Array.from(obj, maFn, thisArg)
+```
+- 可选的第二个参数可以是一个函数，该函数会在对象中的元素被添加到数组前，被应用于每个元素，此外，thisArg允许我们为该函数设置this
+- 字符串可迭代
+```js
+let str = 'abcd'
+let chars = Array.from(str);
+alert(chars[0]); //a
+alert(chars[1]); //b
+alert(chars.length); //4
+```
+
+#### Map and Set
+##### 映射
+- Map是一个k-v的数据项的集合，Map允许任何类型的key，但对象不能
+- new Map()   
+- map.set(key, value);
+- map.get(key); 不存在则返回undef
+- map.has(key); true/false
+- map.delete(key);
+- map.clear()  清空map
+- map.size    
+map可以将对象作为key
+```js
+let john = {name: 'John'};
+let visitCountMap = new Map();
+visitCountMap.set(john, 123);
+alert(visitCountMap.get(john)) //123
+```
+对于普通Object 如果将键设置为key，则对象会被调用toString方法
+```js
+let john = {name: 'john'};
+let visitCountObj = {};
+visitCountObj[john] = 123;
+//是写成了
+alert(visitCountObj['[object Object]']); //123
+```
+**NaN**也能被用作键
+Map可以链式调用,每次调用会返回map本身
+```js
+map.set('1', 'str')
+  .set(1, 'num1')
+  .set(true, 'bool1');
+```
+- map.keys()  遍历并返回所有的键 iterable对象
+- map.values()  遍历并返回所有的值 的iterable对象
+- map.entries  遍历并返回所有的实体 [key, value] 对象
+
+###### Object.entries :从对象创建Map
+```js
+let obj = {
+  name: 'john',
+  age: 30,
+};
+let map = new Map(Object.entries(obj)); //Oebject.entries 返回对象的键值对数组 [['name', 'john'], ['age', 30]]
+```
+###### Object.fromEntries: 从Map创建对象
+```js
+let prices = Object.fromEntries([
+  ['banana', 1],
+  ['apple', 2],
+  ['meat', 3],
+]);
+//prices = { banana: 1, orange: 2,  meat: 4,};
+```
+```js
+//Map中的键值对可以作为fromEntries()参数，其本身也可以
+let map = new Map();
+map.set('banana', 1).
+  .set('orange', 2)
+  .set('meat', 4);
+
+let obj = Object.fromEntries(map);
+//obj = {banana: 1, orange: 2,  meat: 4,}
+```
+
+##### 集合 Set
+> 是值的集合，没有键，每个值只能出现一次
+- new Set(iterable) 创建一个set，如果提供了一个iterable对象，（通常是数组），会从数组中复制到set，可以去重
+- set.add(value)   添加一个值，返回set本身
+- set.delete(value) 删除值，存在则返回true，否则false
+- set.has(value)  
+- set.clear()   
+- set.size   
+
+###### Set迭代
+可以用for of  或forEach来遍历
+- set.keys() —— 遍历并返回所有的值（returns an iterable object for values），
+- set.values() —— 与 set.keys() 作用相同，这是为了兼容 Map，
+- set.entries() —— 遍历并返回所有的实体（returns an iterable object for entries）[value, value]，它的存在也是为了兼容 Map。
+
+
+##### WeakMap and WeakSet (弱映射和弱集合)
+- 通常，当对象、数组这类数据结构在内存中存在时，他们的子元素、如对象属性、数组的元素都是可访问的。即使没有其他对该对象的引用，它也不会被垃圾回收机制回收。
+- 同理，我们使用对象作为Map的key，当map存在时，对象也存在，不会被回收。如：
+```js
+let john = {name: 'John'};
+
+let map = new Map();
+map.set(john, '...');
+
+john = null; //此时john仍在内存中，可以用get访问
+```
+
+###### WeakMap 
+- 只能使用对象作为key，不能为原始值
+```js
+let john = {name: 'john'};
+
+let weakMap = new WeakMap();
+weakMap.set(john, '...');
+john = null; //覆盖引用
+//john被从内存中删除了
+```
+##### JSON 方法
+javascript Object Notation
+**JSON是表示值和对象的通用格式。使用JSON可以容易跟服务器端进行数据交换**
+1. JSON.stringify
+- JSON.stringify(obj) 将对象转换为JSON
+2. JSON.parse
+- JSON.parse(json) 将JSON转换为对象
+
+**JSON编码的对象与对象字面量的区别**
+- 字符串使用双引号，JSON中没有单引号或者反引号
+- 对象属性名称也是双引号，强制性）
+JSON 支持以下数据类型：
+
+Objects { ... }
+Arrays [ ... ]
+Primitives：
+strings，
+numbers，
+boolean values true/false，
+null。
+```js
+// 数字在 JSON 还是数字
+alert( JSON.stringify(1) ) // 1
+
+// 字符串在 JSON 中还是字符串，只是被双引号扩起来
+alert( JSON.stringify('test') ) // "test"
+
+alert( JSON.stringify(true) ); // true
+
+alert( JSON.stringify([1, 2, 3]) ); // [1,2,3]
+```
+**JSON 是语言无关的纯数据规范，因此一些特定于 JavaScript 的对象属性会被 JSON.stringify 跳过。即：函数属性（方法）。Symbol 类型的属性。存储 undefined 的属性.**
+
+###### JSON.parse
+```js
+let value = JSON.parse(str,[reviver]);
+```
+- str 要解析的字符串
+- reviver 可选函数function(key, value),该函数将为每个(key,value)对调用，并可以对值进行转化
+```js
+let str = '{"title":"Conference","date":"2017-11-30T12:00:00.000Z"}';
+
+let meetup = JSON.parse(str, function(key, value) {
+  if (key == 'date') return new Date(value);
+  return value;
+});
+
+alert( meetup.date.getDate() ); // 现在正常运行了！
+```
+
+#### 递归和堆栈
+
+- 递归通常比迭代解更短
+- 最大的嵌套调用次数（包括首次）被称为递归深度。
+- 最大递归深度受JavaScript引擎限制。
+
+##### 执行上下文(context)和堆栈
+
+- 有关正在运行的函数的执行过程的相关信息被存储在其执行上下文中。
+
+- 执行上下文是一个内部数据结构，它包含有关函数执行时的详细细节：
+
+  - 当前控制流所在的位置
+  - 当前的变量
+  - this
+  - 其他细节
+
+- 当一个函数进行嵌套调用时，会发生：
+
+  - 当前函数被暂停
+  - 与它关联的执行上下文被 **执行上下文堆栈**保存
+  - 执行嵌套调用
+  - 嵌套调用结束后，从堆栈中恢复之前的执行上下文，并从停止的位置恢复外部函数。
+
+  **任何递归都可以用循环来重写，通常循环变体更有效**
+
+  > ……但有时重写很难，尤其是函数根据条件使用不同的子调用，然后合并它们的结果，或者分支比较复杂时。而且有些优化可能没有必要，完全不值得。
+  >
+  > 递归可以使代码更短，更易于理解和维护。并不是每个地方都需要优化，大多数时候我们需要一个好代码，这就是为什么要使用它。
+
+```js
+let company = { // 是同一个对象，简洁起见被压缩了
+  sales: [{name: 'John', salary: 1000}, {name: 'Alice', salary: 1600 }],
+  development: {
+    sites: [{name: 'Peter', salary: 2000}, {name: 'Alex', salary: 1800 }],
+    internals: [{name: 'Jack', salary: 1300}]
+  };
+    function sumSalaries(department) {
+        if (department instanceof Array) {
+            return department.reduce((prev, current) => prev + current.salary, 0);
+        }
+        else {
+            let sum = 0;
+            for (let subdep of department) {
+                sum += sumSalaries(subdep);
+            }
+        }
+        return sum;
+    }
+
+
+```
+
+##### 尾调用优化
+
+1. 尾调用概念：尾调用指的是函数作为另外一个函数的最后一条语句被调用。
+   示例代码：
+
+   ```js
+   function demo(){
+      return demoAnother();//尾调用
+    }
+   ```
+
+   
+
+2. ES5引擎环境中，尾调用底层实现机制：创建一个新的栈帧，将其推入调用栈来表示函数调用。也就是说，在循环调用中，每一个未用完的栈帧都会保存在内存中，当调用栈变得过大时会造成程序问题。
+
+3. ES6引擎环境中，尾调用底层实现机制：ES6缩减了严格模式下尾调用栈的大小，当满足以下条件时，尾调用不再创建新的栈帧，而是清除并重用当前栈帧：
+   a、尾调用不访问当前栈帧的变量（就是说函数不是一个闭包）
+   b、在函数内部，尾调用是最后一条语句
+   c、尾调用的结果作为函数值返回
+
+   
+
+   #### Rest参数
+
+   ```js
+   function sumAll(...args) { // 数组名为 args
+     let sum = 0;
+   
+     for (let arg of args) sum += arg;
+   
+     return sum;
+   }
+   
+   alert( sumAll(1) ); // 1
+   alert( sumAll(1, 2) ); // 3
+   alert( sumAll(1, 2, 3) ); // 6
+   ```
+
+   
+
+   #### Spread语法
+
+**当在函数调用中使用 `...arr` 时，它会把可迭代对象 `arr` “展开”到参数列表中。**
+
+**Spread语法内部使用了迭代器来收集元素，与for...of的方式相同**
+
+- Array.from适用于类数组也适用于可迭代对象
+- [...obj] 只适用于可迭代对象
+
+##### 浅拷贝
+
+```js
+let arr = [1,2,3];
+let arrCopy = [...arr];
+
+alert(arr === arrCopy);//false  他们引用不同
+```
+
+```js
+let obj = {a: 1, b: 2, c: 3,};
+let objCopy = {...obj};
+alert(JSON.stringify(obj) === JSON.stringify(objCopy)); //true   内容相同
+```
+
+函数属性（方法）、Symbol 类型的属性、存储 undefined 的属性会被忽略。
+
+
+
+### 变量作用域 闭包
+
+#### 变量
+
+> 在JavaScript中，每个运行的函数，代码块以及脚本都有一个被称为**词法环境**(lexical environment of the call)的内部（隐藏）关联对象。
+
+词法环境对象的组成：
+
+1. **环境记录(environment record)**——一个存储所有局部变量作为其属性（包括一些其他信息，例如this的值）的对象
+2. 对**外部词法环境**的引用，与外部代码相关联。
+
+一个变量只是**环境记录**这个特殊内部对象的一个属性。
+
+> 1. 当脚本开始运行，词法环境预先填充了所有声明的变量。
+>    - 最初，它们处于“未初始化（Uninitialized）”状态。这是一种特殊的内部状态，这意味着引擎知道变量，但是在用 `let` 声明前，不能引用它。几乎就像变量不存在一样。
+> 2. 然后 `let phrase` 定义出现了。它尚未被赋值，因此它的值为 `undefined`。从这一刻起，我们就可以使用变量了。
+> 3. `phrase` 被赋予了一个值。
+> 4. `phrase` 的值被修改。
+
+#### 函数声明
+
+**函数声明的初始化会立即被完成。**
+
+当创建了一个词法环境（Lexical Environment）时，函数声明会立即变为即用型函数（不像 `let` 那样直到声明处才可用）。
+
+#### 返回函数
+
+```js
+function makeCounter() {
+  let count = 0;
+
+  return function() {
+    return count++;
+  };
+}
+
+let counter = makeCounter();
+```
+
+- 在每次 `makeCounter()` 调用的开始，都会创建一个新的词法环境对象，以存储该 `makeCounter` 运行时的变量。
+- 不同的是，在执行 `makeCounter()` 的过程中创建了一个仅占一行的嵌套函数：`return count++`。我们尚未运行它，仅创建了它。
+
+![image-20211221162923926](C:\Users\邱珂\AppData\Roaming\Typora\typora-user-images\image-20211221162923926.png)
+
+- 所有的函数在“诞生”时都会记住创建它们的词法环境。从技术上讲，这里没有什么魔法：所有函数都有名为 **`[[Environment]]` 的隐藏属性**，该属性保存了**对创建该函数的词法环境的引用**。
+- 因此，`counter.[[Environment]]` 有对 `{count: 0}` 词法环境的引用。这就是函数记住它创建于何处的方式，与函数被在哪儿调用无关。`[[Environment]]` 引用在函数创建时被设置并永久保存。
+- 稍后，当调用 `counter()` 时，会为该调用创建一个新的词法环境，并且其外部词法环境引用获取于 `counter.[[Environment]]`：
+- 现在，当 `counter()` 中的代码查找 `count` 变量时，它首先搜索自己的词法环境（为空，因为那里没有局部变量），然后是外部 `makeCounter()` 的词法环境，并且在哪里找到就在哪里修改。
+- **在变量所在的词法环境中更新变量。**
+
+![image-20211221163312454](C:\Users\邱珂\AppData\Roaming\Typora\typora-user-images\image-20211221163312454.png)
+
+
+
+#### 闭包
+
+闭包 是指内部函数总是可以访问其所在的外部函数中声明的变量和参数，即使在其外部函数被返回（寿命终结）了之后。
+
+
+
+#### 垃圾收集
+
+与 JavaScript 中的任何其他对象一样，词法环境仅在可达时才会被保留在内存中。
+
+但是，如果有一个嵌套的函数在函数结束后仍可达，则它将具有引用词法环境的 `[[Environment]]` 属性。
+
+
+
+> 正如我们所看到的，理论上当函数可达时，它外部的所有变量也都将存在。
+>
+> 但在实际中，JavaScript 引擎会试图优化它。它们会分析变量的使用情况，如果从代码中可以明显看出有未使用的外部变量，那么就会将其删除。
+>
+> **在 V8（Chrome，Edge，Opera）中的一个重要的副作用是，此类变量在调试中将不可用。**
+
+
+
+#### 全局对象
+
+- 浏览器中的全局对象是 window
+
+- Node.js中 全局对象是 global
+
+- 其他环境可能是别的名字
+
+- globalThis 最近被作为全局对象的标准名称加入到了JavaScript中。
+
+- 如果脚本可能会用来在其他环境中运行，则最好使用 `gloablThis`
+
+- 如果一个值非常重要，以至于你想使它在全局范围内可用，那么可以直接将其作为属性写入
+
+  ```js
+  window.currentUser = {
+      name: "John",
+  };
+  ```
+
+- 一般不建议使用全局变量。仅当值对于我们的项目而言确实是全局的时，才应将其存储在全局对象中。并保持其数量最少。
+
+
+
+
 

@@ -45,6 +45,17 @@ function Polygon(sides) {
 		return new Polygon(sides);
 	}
 }
+//或者
+function Polygon(sides) {
+    if (!new.target) {
+        return new Polygon(sides);
+    }
+    this.sides = sides;
+    this.getArea = funtion() {
+        return 0;
+    }
+}
+
 
 function Rectangle(width, height) {
 	Polygon.call(this, 2); //如果this指向rectangle实例，则会在polygon中新创建对象，无法为rectangle实例添加属性
@@ -223,7 +234,7 @@ handler.handleClick.bind(handler); //bind函数还可以接收更多参数，将
 
 ```js
 function curry(fn) {
-    var args = Array.prototypt.slice.call(arguments, 1); //柯里化传入外部参数，从第二个参数开始截取，第一个为fn
+    var args = Array.prototype.slice.call(arguments, 1); //柯里化传入外部参数，从第二个参数开始截取，第一个为fn
     return function() {
         var innerArgs = Array.prototype.slice.call(arguments);
         var finalArgs = args.concat(innerArgs);
@@ -241,7 +252,7 @@ alert(curriedAdd(3)); //8  此时finalArgs = [5, 3];
 
 ```js
 function bind(fn, context) {
-    var args = Array.prototype.slice.call(arguments, 2); //从第二个参数开始截取
+    var args = Array.prototype.slice.call(arguments, 2); //从第3个参数开始截取
     return function() {
         var innerArgs = Array.prototype.slice.call(arguments);
         var finalArgs = args.concat(innerArgs);
