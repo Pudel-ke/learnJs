@@ -930,12 +930,10 @@ let company = { // 是同一个对象，简洁起见被压缩了
    b、在函数内部，尾调用是最后一条语句
    c、尾调用的结果作为函数值返回
 
-   
-
    #### Rest参数
 
    ```js
-   function sumAll(...args) { // 数组名为 args
+   function sumAll(...args) { // 数组名为 args 将收集到的参数储存到数组args中，
      let sum = 0;
    
      for (let arg of args) sum += arg;
@@ -947,7 +945,7 @@ let company = { // 是同一个对象，简洁起见被压缩了
    alert( sumAll(1, 2) ); // 3
    alert( sumAll(1, 2, 3) ); // 6
    ```
-
+   
    
 
    #### Spread语法
@@ -999,7 +997,7 @@ alert(JSON.stringify(obj) === JSON.stringify(objCopy)); //true   内容相同
 
 #### 函数声明
 
-**函数声明的初始化会立即被完成。**
+**函数声明的初始化会立即被完成。**``
 
 当创建了一个词法环境（Lexical Environment）时，函数声明会立即变为即用型函数（不像 `let` 那样直到声明处才可用）。
 
@@ -1078,5 +1076,408 @@ let counter = makeCounter();
 
 
 
+#### new Funtion 
 
+```js
+let func = new Function([arg1, arg2,...argn], functionBody);
+```
+
+这种创建函数的方法，不同在于通过运行时传递过来的字符串创建的。
+
+- 在复杂的Web应用程序中，我们需要从服务器获取代码或者动态地从模板编译函数时才会使用
+
+##### 闭包
+
+通常，闭包指函数通过一个特殊属性[[Environment]]来记录函数自身创建时的环境的函数。它具体指向了函数创建时的词法环境。
+
+- 通过`new Function`创建的函数，该函数指向全局环境。
+- 此类函数无法访问外部变量，只能访问全局变量。
+
+> 如果这个函数能够访问外部（outer）变量会怎么样？
+>
+> 问题在于，在将 JavaScript 发布到生产环境之前，需要使用 **压缩程序（minifier）** 对其进行压缩 —— 一个特殊的程序，通过删除多余的注释和空格等压缩代码 —— 更重要的是，将局部变量命名为较短的变量。
+>
+> 例如，如果一个函数有 `let userName`，压缩程序会把它替换为 `let a`（如果 a 已被占用了，那就使用其他字符），剩余的局部变量也会被进行类似的替换。一般来说这样的替换是安全的，毕竟这些变量是函数内的局部变量，函数外的任何东西都无法访问它。在函数内部，压缩程序会替换所有使用了使用了这些变量的代码。压缩程序很聪明，它会分析代码的结构，而不是呆板地查找然后替换，因此它不会“破坏”你的程序。
+>
+> 但是在这种情况下，如果使 `new Function` 可以访问自身函数以外的变量，它也很有可能无法找到重命名的 `userName`，这是因为新函数的创建发生在代码压缩以后，变量名已经被替换了。
+>
+> **即使我们可以在 `new Function` 中访问外部词法环境，我们也会受挫于压缩程序。**
+>
+> 此外，这样的代码在架构上很差并且容易出错。
+
+
+
+#### 调度 setTimeout 和 setInterval
+
+##### setTimeout
+
+```js
+function sayHi(phrase, who) {
+alert( phrase + ',' + who)
+};
+setTimeout(sayHi, 1000, 'hello', 'John');
+
+setTimeout(() => alert('hello'). 1000);
+```
+
+- **传入函数后不要执行**
+
+- **clearTimeout**取消调度
+
+##### setInterval
+
+```js
+let timerId = setInterval(func, interval, arg1, arg2, ...argN);
+```
+
+##### 嵌套的setTimeout
+
+```js
+let delay = 5000;
+
+let timerId = setTimeout(function request() {
+  ...发送请求...
+
+  if (request failed due to server overload) {
+    // 下一次执行的间隔是当前的 2 倍
+    delay *= 2;
+  }
+
+  timerId = setTimeout(request, delay);
+
+}, delay);
+```
+
+如果我们调度的函数占用大量的CPU，那么我们可以测量执行所需要花费的时间，并安排下次调用应该提前还是推迟。
+
+> **使用 `setInterval` 时，`func` 函数的实际调用间隔要比代码中设定的时间间隔要短！**
+>
+> 这也是正常的，因为 `func` 的执行所花费的时间“消耗”了一部分间隔时间。
+>
+> 也可能出现这种情况，就是 `func` 的执行所花费的时间比我们预期的时间更长，并且超出了 100 毫秒。
+>
+> 在这种情况下，JavaScript 引擎会等待 `func` 执行完成，然后检查调度程序，如果时间到了，则 **立即** 再次执行它。
+>
+> 极端情况下，如果函数每次执行时间都超过 `delay` 设置的时间，那么每次调用之间将完全没有停顿。
+
+**嵌套的setTimeout**能确保延时的固定
+
+##### 垃圾回收
+
+当一个函数传入调度时，将为其创建一个内部引用，并保存在调度程序中。即使这个函数没有其他引用，也能防止垃圾回收。
+
+当函数引用了外部变量时，只要这个函数存在，外部变量也随之存在。外部变量可能占更多内存。因此不需要调度时最好取消。(clearTimeout\clearInterval)
+
+> 无论是哪种调度，设置的时间间隔只决定了要执行的代码什么时候被添加到任务队列中，而非什么时候能执行。
+
+##### 零延时的setTimeout
+
+- setTimeout(func) \ setTimeout(func, 0);
+- 只能让func尽快执行。但是只有在当前执行的脚本执行完毕后，调度程序才会调用。
+
+>在浏览器环境下，嵌套定时器的运行频率是受限制的。根据 [HTML5 标准](https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#timers) 所讲：“经过 5 重嵌套定时器之后，时间间隔被强制设定为至少 4 毫秒”。
+
+**所有的调度方法搜不能保证确切的延时。**
+
+例如，浏览器内的计时器可能由于许多原因而变慢：
+
+- CPU 过载。
+- 浏览器页签处于后台模式。
+- 笔记本电脑用的是电池供电（译注：使用电池供电会以降低性能为代价提升续航）。
+
+所有这些因素，可能会将定时器的最小计时器分辨率（最小延迟）增加到 300ms 甚至 1000ms，具体以浏览器及其设置为准。
+
+
+
+#### 装饰器模式和转发
+
+##### 透明缓存
+
+```js
+function slow(x) {
+  // 这里可能会有重负载的 CPU 密集型工作
+  alert(`Called with ${x}`);
+  return x;
+}
+
+function cachingDecorator(func) {
+  let cache = new Map();
+
+  return function(x) {
+    if (cache.has(x)) {    // 如果缓存中有对应的结果
+      return cache.get(x); // 从缓存中读取结果
+    }
+
+    let result = func(x);  // 否则就调用 func
+
+    cache.set(x, result);  // 然后将结果缓存（记住）下来
+    return result;
+  };
+}
+
+slow = cachingDecorator(slow);
+
+alert( slow(1) ); // slow(1) 被缓存下来了
+alert( "Again: " + slow(1) ); // 一样的
+
+alert( slow(2) ); // slow(2) 被缓存下来了
+alert( "Again: " + slow(2) ); // 和前面一行结果相同
+```
+
+以上代码中，cachingDecorator是一个装饰器：一个特殊的函数，接收另一个函数并改变它的行为。
+
+弊端：上述缓存装饰器不适用于对象方法
+
+原因：`let func = worker.slow; func(2);`
+
+不是通过.fun（即方法调用的函数，其this为undefined。
+
+##### func.call设定上下文 context
+
+`func.call(context, ...args)`
+
+##### func.apply 设定上下文
+
+`func.apply(context, args);`
+
+args是数组
+
+##### 借用方法
+
+```js
+//function hash(args) {
+  //return args.join();
+//} //Error:arguments.join is not a function
+//arguments对象是一个类数组，里面没有定义join方法。
+..//借用数组的join方法
+  function hash() {
+  alert( [].join.call(arguments) ); // 1,2
+}
+
+hash(1, 2);
+```
+
+##### 装饰器和函数属性
+
+>通常，用装饰的函数替换一个函数或一个方法是安全的，除了一件小东西。如果原始函数有属性，例如 `func.calledCount` 或其他，则装饰后的函数将不再提供这些属性。因为这是装饰器。因此，如果有人使用它们，那么就需要小心。
+>
+>例如，在上面的示例中，如果 `slow` 函数具有任何属性，而 `cachingDecorator(slow)` 则是一个没有这些属性的包装器。
+>
+>一些包装器可能会提供自己的属性。例如，装饰器会计算一个函数被调用了多少次以及花费了多少时间，并通过包装器属性公开（expose）这些信息。
+>
+>存在一种创建装饰器的方法，该装饰器可保留对函数属性的访问权限，但这需要使用特殊的 `Proxy` 对象来包装函数。我们将在后面的 Proxy 和 Reflect 中学习它。
+
+
+
+
+
+##### 延时装饰器
+
+```js
+function f(x) {
+    alert(x);
+};
+function delay(f, ms) {
+    return function() {
+        setTimeout(() => f.apply(this,arguments), ms);
+    };
+}
+```
+
+**箭头函数没有自己的this和arguments参数。！**
+
+
+
+##### 防抖装饰器
+
+debounce(f, ms)
+
+> 抖动结束的时间超过指定时间间隔才执行一次任务
+
+```js
+function debounce(func, ms) {
+    let timeout;
+    return function() {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, arguments), ms);//箭头函数没有自己的this， arguments，因此执行时的this和arguments均是函数调用时的上下文。
+    };
+}
+```
+
+调用 `debounce` 会返回一个包装器。当它被调用时，它会安排一个在给定的 `ms` 之后对原始函数的调用，并取消之前的此类超时。
+
+
+
+节流装饰器
+
+throttle(f, ms)
+
+> 指定时间间隔内只执行一次任务，并不断更新上下文和参数，并保存。
+>
+> 即以超过指定的频率调用函数，没有意义。
+
+```js
+function throttle(fn, interval = 300) {
+	let canRun = true;
+    return function() {
+        if (!canRun) return;
+        canRun = false;//设置之后 函数执行（冷却）期间 不会再调用
+        setTimeout(() => {
+            fn.apply(this, arguments); //参数为最初调用时的参数，以及上下文。
+            canRun = true; //指定时间间隔后，fn执行完一次了，冷却结束，表示可以继续执行下次调用。
+        }， interval);
+    };
+}
+//这种写法会出现，第一次触发时，需要等待ms，并且冷却时间内更新的最后一次调用，不会执行。
+```
+
+
+
+**推荐下面这种写法**
+
+```js
+function throttle(fn, ms) {
+    let canRun = true,
+        savedArgs,
+        savedThis;
+
+    function wrapper() {
+        if (!canRun) {
+            savedArgs = arguments;
+            savedThis = this;  //保存最新的参数以及上下文
+            return;
+        }
+        fn.apply(this, arguments); //
+
+        canRun = false;   //第一次执行fn时，canRun设置成false，不允许继续执行。期间调用fn 只会更新上下文和arguments
+
+        setTimeout(function() {
+            canRun = true;   //冷却时间到达后，将canRun设置为TRUE，恢复到初始待执行状态。
+            if (savedArgs) {
+                wrapper.apply(savedThis, savedArgs);  //如果期间有被忽略的调用，则以更新的调用上下文及参数来处理最终的调用，调用wrapper，并重新设置计时器。如果没有被忽略的调用，则恢复到待启动状态。一旦有调用则启动。
+                savedArgs = savedThis = null;     //传递完后 清空保存上下文，恢复到未调用状态。如果不清除，会出现：如果下次调用只触发一次，仍旧会以上回最后触发的上下文，循环多次执行。
+            }
+        }, ms);
+
+    }
+    return wrapper;
+}
+```
+
+
+
+#### 函数绑定
+
+- 一旦this方法被传递到与对象分开的某个地方——this就丢失
+- 浏览器中的setTimeout方法为函数调用设定了this = window
+- Node.js 则会变为计时器对象
+
+实例：
+
+```js
+let user = {
+  firstName: "John",
+  sayHi() {
+    alert(`Hello, ${this.firstName}!`);
+  }
+};
+
+setTimeout(user.sayHi, 1000); // Hello, undefined!
+```
+
+解决1：**包装器**
+
+弊端：如果setTimeout触发之前，user更改，则会调用错误的对象
+
+```js
+let user = {
+  firstName: "John",
+  sayHi() {
+    alert(`Hello, ${this.firstName}!`);
+  }
+};
+
+setTimeout(function() {
+  user.sayHi(); // Hello, John!
+}, 1000);
+```
+
+解决2：**bind**
+
+```js
+let user = {
+  firstName: "John",
+  sayHi() {
+    alert(`Hello, ${this.firstName}!`);
+  }
+};
+
+let sayHi = user.sayHi.bind(user); // (*)
+
+// 可以在没有对象（译注：与对象分离）的情况下运行它
+sayHi(); // Hello, John!
+
+setTimeout(sayHi, 1000); // Hello, John!
+
+// 即使 user 的值在不到 1 秒内发生了改变
+// sayHi 还是会使用预先绑定（pre-bound）的值，该值是对旧的 user 对象的引用
+user = {
+  sayHi() { alert("Another user in setTimeout!"); }
+};
+```
+
+> 如果一个对象有很多方法，并且我们都打算将它们都传递出去，那么我们可以在一个循环中完成所有方法的绑定：
+>
+> ```javascript
+> for (let key in user) {
+>   if (typeof user[key] == 'function') {
+>     user[key] = user[key].bind(user);
+>   }
+> }
+> ```
+>
+> JavaScript 库还提供了方便批量绑定的函数，例如 lodash 中的 [_.bindAll(object, methodNames)](http://lodash.com/docs#bindAll)。
+
+
+
+#### 偏函数
+
+bind 不仅可以绑定this，还可以绑定参数。
+
+```js
+function mul(a, b) {
+  return a * b;
+}
+
+let double = mul.bind(null, 2);
+
+alert( double(3) ); // = mul(2, 3) = 6
+alert( double(4) ); // = mul(2, 4) = 8
+alert( double(5) ); // = mul(2, 5) = 10
+```
+
+#### 在没有上下文情况下的partial
+
+```js
+function partial(func, ...argsBound) {
+  return function(...args) { // (*)
+    return func.call(this, ...argsBound, ...args);
+  }
+}
+
+// 用法：
+let user = {
+  firstName: "John",
+  say(time, phrase) {
+    alert(`[${time}] ${this.firstName}: ${phrase}!`);
+  }
+};
+
+// 添加一个带有绑定时间的 partial 方法
+user.sayNow = partial(user.say, new Date().getHours() + ':' + new Date().getMinutes());
+
+user.sayNow("Hello");
+// 类似于这样的一些内容：
+// [10:00] John: Hello!
+```
 
