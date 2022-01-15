@@ -151,3 +151,4 @@ inheritPrototype(SubType, SuperType);
 let a = new SubType('mike', 13);
 console.log(a.name);
 a.sayName();
+console.log(module.exports);
